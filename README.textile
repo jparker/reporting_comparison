@@ -1,0 +1,8 @@
+This Rails application compares the design and performance of different
+techniques of generating aggregate reports. The methods under consideration
+are:
+
+# Denormalized reporting table maintained by ActiveRecord callbacks
+# Denormalized reporting table maintained by DB (PostgreSQL) triggers
+# Read-only reporting model backed by DB (PostgreSQL) view
+# Methods that generate SUM queries using ActiveRecord
