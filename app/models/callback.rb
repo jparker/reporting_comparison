@@ -15,20 +15,18 @@ class Callback < ActiveRecord::Base
   end
 
   def update_in_report
-    if period_changed?(:week)
-      periods = period_change(:week)
-      WeeklyCallbackReport.update_all(['net=net-?, gross=gross-?, commission=commission-?', *rate_changes.first],
-                                      {period: periods.first})
-      found = WeeklyCallbackReport.update_all(['net=net+?, gross=gross+?, commission=commission+?', *rate_changes.last],
-                                              {period: periods.last})
-      WeeklyCallbackReport.create!(period: periods.last, gross: gross, net: net, commission: commission) if found.zero?
-    elsif rate_changed?
-      period = timestamp.beginning_of_week
-      found = WeeklyCallbackReport.update_all(rate_change, {period: period})
-      WeeklyCallbackReport.create!(period: period, gross: gross, net: net, commission: commission) if found.zero?
-    elsif !WeeklyCallbackReport.find_by_period(timestamp.beginning_of_week)
-      WeeklyCallbackReport.create!(period: timestamp.beginning_of_week, gross: gross, net: net, commission: commission)
-    end
+    old_period, new_period = period_change(:week)
+    found = if period_changed?(:week)
+              WeeklyCallbackReport.update_all(['net=net-?, gross=gross-?, commission=commission-?', *old_rates],
+                                              {period: old_period})
+              WeeklyCallbackReport.update_all(['net=net+?, gross=gross+?, commission=commission+?', *new_rates],
+                                              {period: new_period})
+            elsif rate_changed?
+              WeeklyCallbackReport.update_all(rate_change, {period: new_period})
+            else
+              WeeklyCallbackReport.where(period: new_period).count
+            end
+    WeeklyCallbackReport.create!(period: new_period, gross: gross, net: net, commission: commission) if found.zero?
   end
 
   def delete_from_report
@@ -52,8 +50,12 @@ class Callback < ActiveRecord::Base
     [clause.join(', '), *parameters.flatten]
   end
 
-  def rate_changes
-    net_change.zip(gross_change, commission_change)
+  def old_rates
+    [:net, :gross, :commission].inject([]) {|a,r| a << (send("#{r}_changed?") ? send("#{r}_change").first : send(r))}
+  end
+
+  def new_rates
+    [:net, :gross, :commission].inject([]) {|a,r| a << (send("#{r}_changed?") ? send("#{r}_change").last : send(r))}
   end
 
   def period_changed?(granularity)
@@ -62,8 +64,10 @@ class Callback < ActiveRecord::Base
   end
 
   def period_change(granularity)
-    if period_changed?(granularity)
+    if timestamp_changed?
       timestamp_change.map(&:"beginning_of_#{granularity}")
+    else
+      [timestamp.send("beginning_of_#{granularity}")] * 2
     end
   end
 end

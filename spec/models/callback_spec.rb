@@ -58,6 +58,24 @@ describe Callback do
           report.commission.should == 100
         end
 
+        context 'when only one rate is changed' do
+          it 'updates the weekly report for the old period' do
+            Callback.first.update_attributes!(timestamp: 1.week.from_now, commission: 44)
+            report = WeeklyCallbackReport.find_by_period!(1.week.ago.beginning_of_week)
+            report.gross.should == 110
+            report.net.should == 100
+            report.commission.should == 10
+          end
+
+          it 'updates the weekly report for the new period' do
+            Callback.first.update_attributes!(timestamp: 1.week.from_now, commission: 44)
+            report = WeeklyCallbackReport.find_by_period!(1.week.from_now.beginning_of_week)
+            report.gross.should == 660
+            report.net.should == 600
+            report.commission.should == 64
+          end
+        end
+
         context 'when no weekly report exists for the old period' do
           before { WeeklyCallbackReport.delete_all(period: 1.week.ago.beginning_of_week) }
 
