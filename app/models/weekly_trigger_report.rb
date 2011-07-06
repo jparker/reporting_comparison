@@ -1,0 +1,2 @@
+class WeeklyTriggerReport < TriggerReport
+end
